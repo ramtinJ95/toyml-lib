@@ -10,4 +10,5 @@ func main() {
 	c.Stringify()
 	d := c.Add(a)
 	d.Stringify()
+	fmt.Print(d.Graph())
 }

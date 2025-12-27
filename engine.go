@@ -21,10 +21,6 @@ func NewValue(data float64) *Value {
 	}
 }
 
-func (v *Value) Stringify() {
-	fmt.Printf("Value:(data = %f), (op = %s)\n", v.Data, v.op)
-}
-
 func (v *Value) Add(other *Value) *Value {
 	out := &Value{
 		Data: v.Data + other.Data,
@@ -32,8 +28,58 @@ func (v *Value) Add(other *Value) *Value {
 		op:   "+",
 	}
 	out.backward = func() {
-		v.Grad += out.Grad
-		other.Grad += out.Grad
+		v.Grad += 1.0 * out.Grad
+		other.Grad += 1.0 * out.Grad
+	}
+	return out
+}
+
+func (v *Value) Neg() *Value {
+	return v.Mul(NewValue(-1))
+}
+
+func (v *Value) Sub(other *Value) *Value {
+	return v.Add(other.Neg())
+}
+
+func (v *Value) Mul(other *Value) *Value {
+	out := &Value{
+		Data: v.Data * other.Data,
+		prev: []*Value{v, other},
+		op:   "*",
+	}
+	out.backward = func() {
+		v.Grad += other.Data * out.Grad
+		other.Grad += v.Data * out.Grad
+	}
+	return out
+}
+
+func (v *Value) Div(other *Value) *Value {
+	return v.Mul(other.Pow(-1))
+}
+
+func (v *Value) Pow(other float64) *Value {
+	out := &Value{
+		Data: math.Pow(v.Data, other),
+		prev: []*Value{v},
+		op:   "exp",
+	}
+	out.backward = func() {
+		v.Grad += other * (math.Pow(v.Data, (other - 1))) * out.Grad
+	}
+	return out
+}
+
+func (v *Value) Exp() *Value {
+	x := v.Data
+	out := &Value{
+		Data: math.Exp(x),
+		prev: []*Value{v},
+		op:   "exp",
+	}
+	out.backward = func() {
+		v.Grad += out.Grad * out.Grad
 	}
 	return out
 }
@@ -41,19 +87,19 @@ func (v *Value) Add(other *Value) *Value {
 func (v *Value) Tanh() *Value {
 	x := v.Data
 	t := (math.Exp(2*x) - 1) / (math.Exp(2*x) + 1)
-	return &Value{
+	out := &Value{
 		Data: t,
 		prev: []*Value{v},
 		op:   "tanh",
 	}
+	out.backward = func() {
+		v.Grad += (1 - t*t) * out.Grad
+	}
+	return out
 }
 
-func (v *Value) Mul(other *Value) *Value {
-	return &Value{
-		Data: v.Data * other.Data,
-		prev: []*Value{v, other},
-		op:   "*",
-	}
+func (v *Value) Stringify() {
+	fmt.Printf("Value:(data = %f), (op = %s)\n", v.Data, v.op)
 }
 
 func (v *Value) Graph() string {

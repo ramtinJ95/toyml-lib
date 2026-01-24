@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -15,10 +16,12 @@ type Value struct {
 }
 
 func NewValue(data float64) *Value {
-	return &Value{
+	v := &Value{
 		Data: data,
 		Grad: 0,
 	}
+	v.backward = func() {} // No-op for leaf nodes
+	return v
 }
 
 func (v *Value) Add(other *Value) *Value {
@@ -79,7 +82,7 @@ func (v *Value) Exp() *Value {
 		op:   "exp",
 	}
 	out.backward = func() {
-		v.Grad += out.Grad * out.Grad
+		v.Grad += out.Data * out.Grad
 	}
 	return out
 }
@@ -96,6 +99,27 @@ func (v *Value) Tanh() *Value {
 		v.Grad += (1 - t*t) * out.Grad
 	}
 	return out
+}
+
+func (v *Value) Backprop() {
+	topologicalOrder := []*Value{}
+	visited := map[*Value]bool{}
+	var buildTopoGraph func(n *Value)
+	buildTopoGraph = func(n *Value) {
+		if !visited[n] {
+			visited[n] = true
+			for _, child := range n.prev {
+				buildTopoGraph(child)
+			}
+			topologicalOrder = append(topologicalOrder, n)
+		}
+	}
+	buildTopoGraph(v)
+	v.Grad = 1.0
+	slices.Reverse(topologicalOrder)
+	for _, node := range topologicalOrder {
+		node.backward()
+	}
 }
 
 func (v *Value) Stringify() {
